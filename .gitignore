@@ -1,0 +1,7 @@
+data/*
+*.pth
+*.zip
+*.csv
+*.ipynb
+*.log
+__MACOSX/*
