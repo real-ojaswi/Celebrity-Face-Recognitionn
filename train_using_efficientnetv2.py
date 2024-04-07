@@ -33,7 +33,7 @@ validation_files= torch.load(validation_file)  #this has the indices of the file
 
 transform= transforms.Compose([
     transforms.Lambda(lambda img: img.convert('RGB') if img.mode != 'RGB' else img),  # Convert image to RGB if not already in RGB format
-    transforms.Resize((299, 299)),  # Resize the image to 229x229
+    transforms.Resize((224, 224)),  # Resize the image to 229x229
     transforms.ToTensor(),  # Convert PIL image to Tensor
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # Normalize RGB image
 ])   
@@ -53,7 +53,7 @@ val_dataloader = DataLoader(validation_dataset, batch_size=16, shuffle=False)
 
 ###################################################################################################################
 ######################################### MODEL AND TRAINING #####################################################
-efficientnet= models.efficientnet_v2_l(pretrained=True)
+efficientnet= models.efficientnet_v2_l(pretrained= True)
 efficientnet.fc= nn.Linear(1280, 100)
 criterion=nn.CrossEntropyLoss()
 optimizer=optim.Adam(efficientnet.parameters(), lr=learning_rate)

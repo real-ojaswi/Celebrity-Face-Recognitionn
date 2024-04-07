@@ -5,3 +5,5 @@ data/*
 *.ipynb
 *.log
 __MACOSX/*
+Predictions/
+Data/

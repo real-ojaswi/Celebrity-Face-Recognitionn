@@ -3,6 +3,8 @@ import torch.nn as nn
 import time
 import os
 from torchvision import models
+import logging
+
 
 class Trainer():
     def __init__(self, model, train_loader, val_loader, criterion, device):
@@ -11,6 +13,13 @@ class Trainer():
         self.val_loader= val_loader
         self.criterion= criterion
         self.device= device
+        self.model_name = model.__class__.__name__
+        
+        # Setup logging
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', 
+                            handlers=[logging.FileHandler(f'{self.model_name}_log.log'), logging.StreamHandler()])
+        self.logger = logging.getLogger(self.model_name)
+        
 
 
     def train(self, optimizer, epochs, save_dir, weight= None, start_epoch=0): 
@@ -20,8 +29,8 @@ class Trainer():
         device= self.device
         if weight is not None:
             try:
-                self.model.load_state_dict(torch.load(weight))
-                print(f'Weight successfullly loaded from {weight}')
+                self.model.load_state_dict(torch.load(weight), strict= False)
+                self.logger.info(f'Weight successfullly loaded from {weight}')
             except Exception as e:
                 raise ValueError('Provide a valid weight file')
         train_loss_every_epoch=[]
@@ -44,7 +53,7 @@ class Trainer():
                 if batch_idx % (tenth_length + 1) == 0:
                     current_time= time.perf_counter()
                     elapsed_time= -start_time+current_time
-                    print(f'Epoch {epoch:3d}: [{batch_idx*len(images):6d}/{len(train_loader.dataset):6d}]'
+                    self.logger.info(f'Epoch {epoch:3d}: [{batch_idx*len(images):6d}/{len(train_loader.dataset):6d}]'
                            f'     Elapsed Time: {elapsed_time:5.2f}s   Loss: {torch.mean(torch.FloatTensor(train_loss)):7.3f}')
             assert len(train_loss) == len(train_loader)
             avg_train_loss= torch.mean(torch.FloatTensor(train_loss))
@@ -52,9 +61,10 @@ class Trainer():
             os.makedirs(save_dir, exist_ok=True)
             final_save_dir= os.path.join(save_dir, f'checkpoint_{epoch}.pth')
             torch.save(self.model.state_dict(), final_save_dir)
+            self.logger.info(f'Model saved at {final_save_dir}!!')
             self.test(epoch)
 
-        print(f'Training completed for {epoch} epochs!')
+        self.logger.info(f'Training completed for {epoch} epochs!')
         return train_loss
 
     def test(self, epoch=None, weight= None): #epoch is just for logging purpose
@@ -65,7 +75,7 @@ class Trainer():
         if weight is not None:
             try:
                 self.model.load_state_dict(torch.load(weight))
-                print(f'Weight successfullly loaded from {weight}')
+                self.logger.info(f'Weight successfullly loaded from {weight}')
             except Exception as e:
                 raise ValueError('Provide a valid weight file')        
         
@@ -96,8 +106,9 @@ class Trainer():
         val_stat['labels']=torch.cat(all_labels, dim=0)
 
         if epoch is None:
-            epoch='N/A'
-        print(f"Test/Validation result at epoch: {epoch:3d}: total sample: {total_num: 6d}, Avg loss: {val_stat['loss']:7.3f}, Acc: {100*val_stat['accuracy']:7.3f}%")
+            self.logger.info(f"Test/Validation result at epoch: N/A: total sample: {total_num: 6d}, Avg loss: {val_stat['loss']:7.3f}, Acc: {100*val_stat['accuracy']:7.3f}%")
+        else:
+            self.logger.info(f"Test/Validation result at epoch: {epoch:3d}: total sample: {total_num: 6d}, Avg loss: {val_stat['loss']:7.3f}, Acc: {100*val_stat['accuracy']:7.3f}%")
         return val_stat
 
 
@@ -110,6 +121,12 @@ class TrainerAutoencoder():
         self.val_loader= val_loader
         self.criterion= criterion
         self.device= device
+        self.model_name = model.__class__.__name__
+        
+        # Setup logging
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', 
+                            handlers=[logging.FileHandler(f'{self.model_name}_log.log'), logging.StreamHandler()])
+        self.logger = logging.getLogger(self.model_name)
 
 
     def train(self, optimizer, epochs, save_dir, weight= None, start_epoch=0): 
@@ -120,7 +137,7 @@ class TrainerAutoencoder():
         if weight is not None:
             try:
                 self.model.load_state_dict(torch.load(weight))
-                print(f'Weight successfullly loaded from {weight}')
+                self.logger.info(f'Weight successfullly loaded from {weight}')
             except Exception as e:
                 raise ValueError('Provide a valid weight file')
         train_loss_every_epoch=[]
@@ -143,16 +160,17 @@ class TrainerAutoencoder():
                 if batch_idx % (tenth_length + 1) == 0:
                     current_time= time.perf_counter()
                     elapsed_time= -start_time+current_time
-                    print(f'Epoch {epoch:3d}: [{batch_idx*len(images):6d}/{len(train_loader.dataset):6d}]'
+                    self.logger.info(f'Epoch {epoch:3d}: [{batch_idx*len(images):6d}/{len(train_loader.dataset):6d}]'
                            f'     Elapsed Time: {elapsed_time:5.2f}s   Loss: {torch.mean(torch.FloatTensor(train_loss)):7.3f}')
             assert len(train_loss) == len(train_loader)
             avg_train_loss= torch.mean(torch.FloatTensor(train_loss))
             train_loss_every_epoch.append(avg_train_loss)
+            os.makedirs(save_dir, exist_ok=True)
             final_save_dir= os.path.join(save_dir, f'checkpoint_{epoch}.pth')
             torch.save(self.model.state_dict(), final_save_dir)
             self.test(epoch)
 
-        print(f'Training completed for {epoch} epochs!')
+        self.logger.info(f'Training completed for {epoch} epochs!')
         return train_loss
 
     def test(self, epoch=None, weight= None): #epoch is just for logging purpose
@@ -163,7 +181,7 @@ class TrainerAutoencoder():
         if weight is not None:
             try:
                 self.model.load_state_dict(torch.load(weight))
-                print(f'Weight successfullly loaded from {weight}')
+                self.logger.info(f'Weight successfullly loaded from {weight}')
             except Exception as e:
                 raise ValueError('Provide a valid weight file')        
         
@@ -185,10 +203,12 @@ class TrainerAutoencoder():
         val_stat['loss'] = sum(all_loss)/len(all_loss)
 
         if epoch is None:
-            epoch='N/A'
-        print(f"Test/Validation result at epoch: {epoch:3d}: total sample: {total_num: 6d}, Avg loss: {val_stat['loss']:7.3f}")
+            self.logger.info(f"Test/Validation result at epoch: N/A: total sample: {total_num: 6d}, Avg loss: {val_stat['loss']:7.3f}")
+        else: 
+            self.logger.info(f"Test/Validation result at epoch: {epoch:3d}: total sample: {total_num: 6d}, Avg loss: {val_stat['loss']:7.3f}")
         return val_stat
     
+
 class autoencoderModel(nn.Module):
     def __init__(self):
         super().__init__()
@@ -209,4 +229,18 @@ class autoencoderModel(nn.Module):
         x= nn.functional.relu(self.bn1(self.convT1(x)))
         x= nn.functional.relu(self.bn2(self.convT2(x)))
         x= self.tanh(self.bn3(self.convT3(x)))
+        return x
+    
+
+class autoencoderClassificationModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.backbone= models.efficientnet_b0()
+        self.fc1= nn.Linear(1000, 512)
+        self.fc2 =nn.Linear(512, 100)
+
+    def forward(self, x):
+        x= self.backbone(x)
+        x= nn.functional.relu(self.fc1(x))
+        x= self.fc2(x)
         return x

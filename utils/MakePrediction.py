@@ -67,7 +67,13 @@ class predictor():
             if len(modes) == 1:
                 temporary_prediction.at[index, 'Mode'] = modes.iloc[0]
             else:
-                temporary_prediction.at[index, 'Mode'] = row.iloc[0]
+                # temporary_prediction.at[index, 'Mode'] = row.iloc[0]
+                mode_indices = {}  # Dictionary to store the indices of each mode
+                for mode in modes:
+                    mode_indices[mode] = np.where(row == mode)[0][0]  # Find the index of the first occurrence of each mode
+                sorted_modes = sorted(mode_indices.items(), key=lambda x: x[1])  # Sort modes based on their indices
+                earliest_mode = sorted_modes[0][0]  # Select the mode with the earliest index
+                temporary_prediction.at[index, 'Mode'] = earliest_mode
             
 
         final_prediction= predictions[0]  #just as a placeholder
@@ -99,6 +105,10 @@ class predictor():
             predictions.append(prediction)
 
         self._combine_predictions(predictions, self.mapping_file, self.output_file)
+
+if __name__=='__main__':
+    print("This file can only be imported!!!")
+
 
 
 

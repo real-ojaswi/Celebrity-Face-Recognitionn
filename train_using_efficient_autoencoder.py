@@ -8,53 +8,88 @@ import torch.optim as optim
 import torch.nn as nn
 from utils.Dataset import *
 from utils.trainer import *
+import sys
 
-device= torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+if __name__== '__main__':  
+    ## provide 'autoencoder' or 'classifier' as an argument while calling the script depending on what you want
+    ## to train. if you don't pass any argument, the program will assume, you're trying to train autoencoder
+    if len(sys.argv) >= 2:
+        # Check if the provided argument is valid
+        if sys.argv[1] in ['autoencoder', 'classifier', None]:
+            # Argument is valid
+            selected_arg = sys.argv[1]
+        else:
+            # Invalid argument provided
+            raise ValueError("Use 'autoencoder' or 'classifier' as the argument")
+    else:
+        selected_arg = None 
 
-###################################################################################################################
-###########################inputs needed for the execution of file#################################################
-root_dir = 'data/train_croppedMTCNN2' # directory with images
-csv_file = 'data/train.csv'     # csv file containing labels for images
-validation_file= 'data/validation_file.pth'  #file containing the list of indices for the images to be considered in 
-                                             # validation set
-to_save_dir= 'EffNetEncoderCheckpoints_Data2' #  directory where checkpoints will be saved
-to_use_weight= None # (OPTIONAL) the weight to be loaded
+    device= torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-epochs= 20 #the number of epochs to train for 
-learning_rate= 0.0001 # learning rate for training
-start_epoch= 0   # (OPTIONAL) the epoch to start from (if you're continuing from the last session, use the number 
-                  # after your last saved checkpoint)
+    ###################################################################################################################
+    ######################### inputs needed for the execution of file #################################################
+    root_dir = 'data/train_croppedMTCNN2' # directory with images
+    csv_file = 'data/train.csv'     # csv file containing labels for images
+    validation_file= 'data/validation_file.pth'  #file containing the list of indices for the images to be considered in 
+                                                # validation set
+    
+    #### if you're training the autoencoder ###
+    to_save_dir_AE= 'EffNetEncoderCheckpoints_Data2' #  directory where checkpoints will be saved
+    to_use_weight_AE= 'EffNetEncoderCheckpoints_Data2/checkpoint_19.pth' # (OPTIONAL) the weight to be loaded or 'None' if you're
+                                                                      # starting from the beginning
+    ### if you're training the classifier ###
+    to_save_dir_AEC= 'AEClassifier_Data2'
+    to_use_weight_AEC = 'AEClassifier_Data2/checkpoint_21.pth'
 
-
-###################################################################################################################
-######################################### FOR PREPARING DATA #####################################################
-#file containing the list of indices which will be considered while building validation_dataset
-validation_files= torch.load(validation_file)  #this has the indices of the files that are in validation_set
-
-transform= transforms.Compose([
-    transforms.Lambda(lambda img: img.convert('RGB') if img.mode != 'RGB' else img),  # Convert image to RGB if not already in RGB format
-    transforms.Resize((224, 224)),  # Resize the image to 224x224
-    transforms.ToTensor(),  # Convert PIL image to Tensor
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # Normalize RGB image
-])   
-
-dataset = CelebrityDataset(root_dir=root_dir, csv_file=csv_file, transform=transform)
-
-val_indices = [i for i, filename in enumerate(dataset.images) if filename in validation_files]
-train_indices = [i for i in range(len(dataset)) if i not in val_indices]
-
-training_dataset= Subset(dataset, train_indices)
-validation_dataset= Subset(dataset, val_indices)
-
-# Create dataloaders for training and validation sets
-train_dataloader = DataLoader(training_dataset, batch_size=16, shuffle=True)
-val_dataloader = DataLoader(validation_dataset, batch_size=16, shuffle=False)
+    ### inputs required for training configuration ###
+    epochs= 40 #the number of epochs to train for 
+    learning_rate= 0.001 # learning rate for training
+    start_epoch= 0   # (OPTIONAL) the epoch to start from (if you're continuing from the last session, use the number 
+                    # after your last saved checkpoint)
 
 
-###################################################################################################################
-######################################### MODEL AND TRAINING #####################################################
-model= autoencoderModel()
-criterion=nn.L1Loss()
-optimizer=optim.Adam(model.parameters(), lr=learning_rate)
-my_trainer= TrainerAutoencoder(model, train_dataloader, val_dataloader, criterion, device)
-my_trainer.train(optimizer, epochs, to_save_dir, to_use_weight, start_epoch= start_epoch)
+    ###################################################################################################################
+    ######################################### FOR PREPARING DATA #####################################################
+    #file containing the list of indices which will be considered while building validation_dataset
+    validation_files= torch.load(validation_file)  #this has the indices of the files that are in validation_set
+
+    transform= transforms.Compose([
+        transforms.Lambda(lambda img: img.convert('RGB') if img.mode != 'RGB' else img),  # Convert image to RGB if not already in RGB format
+        transforms.Resize((224, 224)),  # Resize the image to 224x224
+        transforms.ToTensor(),  # Convert PIL image to Tensor
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # Normalize RGB image
+    ])   
+
+    dataset = CelebrityDataset(root_dir=root_dir, csv_file=csv_file, transform=transform)
+
+    val_indices = [i for i, filename in enumerate(dataset.images) if filename in validation_files]
+    train_indices = [i for i in range(len(dataset)) if i not in val_indices]
+
+    training_dataset= Subset(dataset, train_indices)
+    validation_dataset= Subset(dataset, val_indices)
+
+    # Create dataloaders for training and validation sets
+    train_dataloader = DataLoader(training_dataset, batch_size=16, shuffle=True)
+    val_dataloader = DataLoader(validation_dataset, batch_size=16, shuffle=False)
+
+
+    ###################################################################################################################
+    ######################################### MODEL AND TRAINING #####################################################
+    
+    if selected_arg == 'autoencoder' or selected_arg== None:
+        model= autoencoderModel()
+        criterion=nn.L1Loss()
+        optimizer=optim.Adam(model.parameters(), lr=learning_rate)
+        my_trainer= TrainerAutoencoder(model, train_dataloader, val_dataloader, criterion, device)
+        my_trainer.train(optimizer, epochs, to_save_dir_AE, to_use_weight_AE, start_epoch= start_epoch)
+    
+    else:
+        model= autoencoderClassificationModel()
+        for param in model.backbone.parameters():
+            param.requires_grad= False
+        criterion= nn.CrossEntropyLoss()
+        optimizer=optim.Adam(model.parameters(), lr=learning_rate)
+        my_trainer= Trainer(model, train_dataloader, val_dataloader, criterion, device)
+        my_trainer.train(optimizer, epochs, to_save_dir_AEC, to_use_weight_AEC, start_epoch= start_epoch)
+
+        
